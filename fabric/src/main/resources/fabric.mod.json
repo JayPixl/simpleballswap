@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "simpleballswap",
+  "version": "${version}",
+  "name": "Cobblemon: Simple Ball Swap",
+  "description": "Simple Cobblemon addon for swapping your Pokemon's caught ball.",
+  "authors": [
+    "Jaypixl7"
+  ],
+  "license": "MIT License",
+  "icon": "assets/simpleballswap/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "io.github.jaypixl.simpleballswap.fabric.SimpleBallSwapModFabric"
+    ]
+  },
+  "mixins": [
+    "simpleballswap-common.mixins.json"
+  ],
+  "depends": {
+    "minecraft": "1.21.1",
+    "cobblemon": ">=1.7.1 <1.8.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "io.github.jaypixl.simpleballswap.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "PokeBallItemMixin",
+    "PokemonEntityInvoker",
+    "PokemonEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
