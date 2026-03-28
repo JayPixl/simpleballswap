@@ -45,7 +45,7 @@ public final class EventHandler {
             return;
         }
 
-        if (pokemonEntity.getPokemon().getOwnerPlayer() != e.getPlayer()) {
+        if (!e.getPlayer().getUUID().equals(pokemonEntity.getOwnerUUID())) {
             // SimpleBallSwapMod.LOGGER.info("NOT OWNER: " + pokemonEntity.getPokemon().getOwnerPlayer());
             return;
         }

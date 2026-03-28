@@ -1,5 +1,5 @@
 # Simple Ball Swap 🔁
-Change your Cobblemon's caught ball with one click!
+Change your Cobblemon's caught ball with ease!
 ## Usage 💻
 Simply shift+right click your Cobblemon while holding a pokeball, then click the "change cosmetic" button on the interaction wheel. Voila! Brand new cosmetic ball. ✨
 ## Config 🔧

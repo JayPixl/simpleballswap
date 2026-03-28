@@ -3,6 +3,7 @@ package io.github.jaypixl.simpleballswap.mixin;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.item.PokeBallItem;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.entity.player.Player;
@@ -34,7 +35,10 @@ public abstract class PokeBallItemMixin {
             return;
         }
 
-        cir.setReturnValue(InteractionResultHolder.pass(player.getItemInHand(usedHand)));
+        cir.setReturnValue(new InteractionResultHolder<>(
+                InteractionResult.SUCCESS_NO_ITEM_USED,
+                player.getItemInHand(usedHand)
+        ));
     }
 
     private EntityHitResult simpleballswap$findOwnedPokemonHit(Player player) {
@@ -50,7 +54,7 @@ public abstract class PokeBallItemMixin {
                 end,
                 searchBox,
                 entity -> entity instanceof PokemonEntity pokemonEntity
-                        && pokemonEntity.getPokemon().getOwnerPlayer() == player
+                        && player.getUUID().equals(pokemonEntity.getOwnerUUID())
         );
     }
 }

@@ -10,6 +10,8 @@ import io.github.jaypixl.simpleballswap.SimpleBallSwapMod;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -41,6 +43,28 @@ public abstract class PokemonEntityMixin {
         return new CosmeticItemDefinition();
     }
 
+    @Inject(method = "mobInteract", at = @At("HEAD"), cancellable = true)
+    private void simpleballswap$preventClientBallUseWhenOpeningWheel(
+            Player player,
+            InteractionHand hand,
+            CallbackInfoReturnable<InteractionResult> cir
+    ) {
+        if (!player.level().isClientSide() || hand != InteractionHand.MAIN_HAND || !player.isShiftKeyDown()) {
+            return;
+        }
+
+        PokemonEntity pokemonEntity = (PokemonEntity) (Object) this;
+        if (!player.getUUID().equals(pokemonEntity.getOwnerUUID())) {
+            return;
+        }
+
+        if (!player.getItemInHand(hand).is(CobblemonItemTags.POKE_BALLS)) {
+            return;
+        }
+
+        cir.setReturnValue(InteractionResult.SUCCESS_NO_ITEM_USED);
+    }
+
     @Inject(method = "offerItem", at = @At("HEAD"), cancellable = true)
     private void simpleballswap$handlePokeBallCosmeticOffer(
             Player player,
@@ -53,7 +77,7 @@ public abstract class PokemonEntityMixin {
         }
 
         PokemonEntity pokemonEntity = (PokemonEntity) (Object) this;
-        if (pokemonEntity.isBusy() || pokemonEntity.getPokemon().getOwnerPlayer() != player) {
+        if (pokemonEntity.isBusy() || !player.getUUID().equals(pokemonEntity.getOwnerUUID())) {
             cir.setReturnValue(false);
             return;
         }
@@ -67,7 +91,7 @@ public abstract class PokemonEntityMixin {
         if (pokemon.getCaughtBall() == pokeBallItem.getPokeBall()) {
             // Add "Same ball" message
             player.sendSystemMessage(Component.literal(pokemon.getDisplayName(false).getString() + "'s ball is already " + pokeBallItem.getName(stack).getString() + "!").withStyle(ChatFormatting.RED));
-            cir.setReturnValue(false);
+            cir.setReturnValue(true);
             return;
         }
 
