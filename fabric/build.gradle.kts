@@ -14,7 +14,7 @@ loom {
     silentMojangMappingsLicense()
 
     mixin {
-        defaultRefmapName.set("mixins.${project.name}.refmap.json")
+        defaultRefmapName.set("mixins.${rootProject.property("archives_base_name")}-${project.name}.refmap.json")
     }
 }
 val shadowCommon: Configuration = configurations.maybeCreate("shadowCommon")
@@ -30,6 +30,16 @@ dependencies {
     //needed for cobblemon
     modImplementation("net.fabricmc:fabric-language-kotlin:${property("fabric_kotlin")}")
     modImplementation("com.cobblemon:fabric:${property("cobblemon_version")}") { isTransitive = false }
+
+    // Cobblemon ships GraalVM (showdown) as packed jar. Loader only
+    // unpacks nested jars for mods in the mods folder, not for classpath mods so in the
+    // dev runtime the Showdown thread dies with NoClassDefFoundError on
+    // org/graalvm/polyglot/HostAccess.
+    // Adding it in here does NOT affect the end result jar
+    runtimeOnly("org.graalvm.js:js:${property("graalvm_version")}")
+    runtimeOnly("org.graalvm.sdk:graal-sdk:${property("graalvm_version")}")
+    runtimeOnly("org.graalvm.truffle:truffle-api:${property("graalvm_version")}")
+    runtimeOnly("org.graalvm.regex:regex:${property("graalvm_version")}")
 
     implementation(project(":common", configuration = "namedElements"))
     "developmentFabric"(project(":common", configuration = "namedElements"))

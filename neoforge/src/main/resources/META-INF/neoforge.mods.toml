@@ -24,13 +24,13 @@ side = "BOTH"
 [[dependencies.simpleballswap]]
 modId = "neoforge"
 mandatory = true
-versionRange = "[21.1.182,)"
+versionRange = "[21.1.250,)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.simpleballswap]]
 modId = "cobblemon"
 mandatory = true
-versionRange = "[1.7.1,)"
+versionRange = "[1.8.0,1.9)"
 ordering = "AFTER"
 side = "BOTH"
