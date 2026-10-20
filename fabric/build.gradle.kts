@@ -1,7 +1,7 @@
 plugins {
+    id("com.gradleup.shadow")
     id("dev.architectury.loom")
     id("architectury-plugin")
-    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 architectury {
@@ -17,7 +17,8 @@ loom {
         defaultRefmapName.set("mixins.${rootProject.property("archives_base_name")}-${project.name}.refmap.json")
     }
 }
-val shadowCommon: Configuration = configurations.maybeCreate("shadowCommon")
+
+val shadowCommon: Configuration by configurations.creating
 
 dependencies {
     minecraft("com.mojang:minecraft:${property("minecraft_version")}")
@@ -25,6 +26,13 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${property("fabric_loader_version")}")
 
     modRuntimeOnly("net.fabricmc.fabric-api:fabric-api:${property("fabric_api_version")}")
+    // needed for development launch targets to work
+    modRuntimeOnly("org.graalvm.js:js:${property("graalvm_version")}")
+    modRuntimeOnly("org.graalvm.sdk:graal-sdk:${property("graalvm_version")}")
+    modRuntimeOnly("org.graalvm.regex:regex:${property("graalvm_version")}")
+    modRuntimeOnly("org.graalvm.truffle:truffle-api:${property("graalvm_version")}")
+    modRuntimeOnly("com.ibm.icu:icu4j:${property("icu4j_version")}")
+
     modImplementation(fabricApi.module("fabric-command-api-v2", property("fabric_api_version").toString()))
 
     //needed for cobblemon
@@ -49,20 +57,19 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${property("junit_version")}")
 }
 
-tasks.getByName<Test>("test") {
-    useJUnitPlatform()
-}
-
-tasks.processResources {
-    inputs.property("version", project.version)
-
-    filesMatching("fabric.mod.json") {
-        expand(project.properties)
+tasks {
+    test {
+        useJUnitPlatform()
     }
 
-}
+    processResources {
+        inputs.property("version", project.version)
 
-tasks {
+        filesMatching("fabric.mod.json") {
+            expand(project.properties)
+        }
+
+    }
 
     jar {
         archiveBaseName.set("${rootProject.property("archives_base_name")}-${project.name}")
