@@ -1,8 +1,12 @@
+import org.gradle.kotlin.dsl.assign
+import org.gradle.kotlin.dsl.invoke
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("java")
     id("java-library")
     kotlin("jvm") version("2.2.20")
-
+    id("com.gradleup.shadow") version "9.3.1" apply false
     id("dev.architectury.loom") version("1.11-SNAPSHOT") apply false
     id("architectury-plugin") version("3.4-SNAPSHOT") apply false
 }
@@ -16,18 +20,29 @@ allprojects {
 
     repositories {
         mavenCentral()
-        maven("https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/")
-        maven("https://maven.impactdev.net/repository/development/")
-        maven("https://maven.neoforged.net/releases")
-        maven("https://thedarkcolour.github.io/KotlinForForge/")
+        maven("https://artefacts.cobblemon.com/releases/")
+        maven("https://repo.spongepowered.org/repository/maven-public/")
     }
 
-    tasks.getByName<Test>("test") {
-        useJUnitPlatform()
-    }
+    tasks {
+        test {
+            useJUnitPlatform()
+        }
 
-    java {
-        withSourcesJar()
+        java {
+            withSourcesJar()
+            sourceCompatibility = JavaVersion.VERSION_21
+            targetCompatibility = JavaVersion.VERSION_21
+        }
+
+        compileJava {
+            options.release = 21
+        }
+
+        compileKotlin {
+            compilerOptions {
+                jvmTarget.set(JvmTarget.JVM_21)
+            }
+        }
     }
 }
-
