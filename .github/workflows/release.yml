@@ -21,8 +21,6 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # tags are needed to compute the changelog range
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -83,21 +81,53 @@ jobs:
             version_type=release
           fi
 
+          # Release notes are written by hand, for players. The workflow publishes the
+          # section of CHANGELOG.md whose heading matches the release version, verbatim.
+          # A missing section fails the release: silently falling back to the commit log
+          # would put developer-facing text in front of players. Manual runs publish
+          # nothing, so they do not need a section.
+          changelog=""
           if [[ "$publish" == true ]]; then
-            previous_tag="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
-            if [[ -n "$previous_tag" ]]; then
-              range="${previous_tag}..HEAD"
-              echo "Changelog covers commits since $previous_tag."
-            else
-              range="HEAD"
-              echo "No previous tag; changelog covers the full history."
+            if [[ ! -f CHANGELOG.md ]]; then
+              echo "::error::CHANGELOG.md is missing. Add player-facing release notes under '## [$version] - YYYY-MM-DD' before tagging."
+              exit 1
             fi
-          else
-            range="HEAD"
-          fi
 
-          changelog="$(git log --no-merges --pretty=format:'- %s (%h)' $range)"
-          changelog="${changelog:-No changes recorded.}"
+            changelog="$(awk -v ver="$version" '
+              /^##[[:space:]]/ {
+                if (capture) exit
+                heading = $0
+                sub(/^##[[:space:]]+/, "", heading)
+                sub(/[[:space:]]+$/, "", heading)
+                if (heading ~ /^\[/) {
+                  sub(/^\[/, "", heading)
+                  sub(/\].*$/, "", heading)
+                } else {
+                  sub(/[[:space:]].*$/, "", heading)
+                }
+                sub(/^v/, "", heading)
+                if (heading == ver) capture = 1
+                next
+              }
+              capture {
+                if (!started && $0 ~ /[^[:space:]]/) started = 1
+                if (started) {
+                  n++
+                  lines[n] = $0
+                  if ($0 ~ /[^[:space:]]/) last = n
+                }
+              }
+              END { for (i = 1; i <= last; i++) print lines[i] }
+            ' CHANGELOG.md)"
+
+            if [[ -z "$changelog" ]]; then
+              echo "::error::CHANGELOG.md has no '$version' section (or the section is empty). Add player-facing release notes under '## [$version] - YYYY-MM-DD' before tagging."
+              exit 1
+            fi
+
+            echo "Changelog for $version:"
+            printf '%s\n' "$changelog"
+          fi
 
           echo "Version: $version ($version_type)"
           echo "Publishing: $publish"
