@@ -4,3 +4,8 @@
 **/.gradle
 **/build
 **/run
+
+# Local agent tooling and scratch issue tracker (not part of the project)
+.agents/
+skills-lock.json
+.scratch/
