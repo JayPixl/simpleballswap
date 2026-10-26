@@ -1,0 +1,222 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags are needed to compute the changelog range
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Preflight
+        id: preflight
+        env:
+          MODRINTH_ID: ${{ secrets.MODRINTH_ID }}
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          CURSEFORGE_ID: ${{ secrets.CURSEFORGE_ID }}
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          mod_version="$(sed -n 's/^mod_version=//p' gradle.properties)"
+
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            publish=true
+            tag="$GITHUB_REF_NAME"
+
+            if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-(alpha|beta)\.[0-9]+)?$ ]]; then
+              echo "::error::Tag '$tag' is not a valid release tag. Expected v<major>.<minor>.<patch>, optionally with -alpha.N or -beta.N."
+              exit 1
+            fi
+
+            version="${BASH_REMATCH[1]}"
+            case "${BASH_REMATCH[2]:-}" in
+              -alpha*) version_type=alpha ;;
+              -beta*) version_type=beta ;;
+              *) version_type=release ;;
+            esac
+
+            if [[ "$version" != "$mod_version" ]]; then
+              echo "::error::Tag '$tag' implies version '$version', but gradle.properties has mod_version=$mod_version. Bump mod_version and tag that commit."
+              exit 1
+            fi
+
+            missing=()
+            for name in MODRINTH_ID MODRINTH_TOKEN CURSEFORGE_ID CURSEFORGE_TOKEN; do
+              if [[ -z "${!name:-}" ]]; then
+                missing+=("$name")
+              fi
+            done
+            if (( ${#missing[@]} > 0 )); then
+              echo "::error::Missing repository secrets: ${missing[*]}"
+              exit 1
+            fi
+          else
+            # Manual runs build and verify only. Publishing requires a tag.
+            publish=false
+            version="$mod_version"
+            version_type=release
+          fi
+
+          if [[ "$publish" == true ]]; then
+            previous_tag="$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || true)"
+            if [[ -n "$previous_tag" ]]; then
+              range="${previous_tag}..HEAD"
+              echo "Changelog covers commits since $previous_tag."
+            else
+              range="HEAD"
+              echo "No previous tag; changelog covers the full history."
+            fi
+          else
+            range="HEAD"
+          fi
+
+          changelog="$(git log --no-merges --pretty=format:'- %s (%h)' $range)"
+          changelog="${changelog:-No changes recorded.}"
+
+          echo "Version: $version ($version_type)"
+          echo "Publishing: $publish"
+
+          delimiter="CHANGELOG_${RANDOM}${RANDOM}"
+          {
+            echo "publish=$publish"
+            echo "version=$version"
+            echo "version_type=$version_type"
+            echo "changelog<<$delimiter"
+            echo "$changelog"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: |
+          chmod +x gradlew
+          ./gradlew build
+
+      # One listing per mod loader per distribution platform (see docs/adr/0001-per-loader-listings.md).
+      # Each step is allowed to fail so that a problem on one platform cannot stop the others;
+      # the final step reports what actually published and fails the job.
+
+      - name: Publish Fabric to Modrinth
+        id: fabric_modrinth
+        if: steps.preflight.outputs.publish == 'true'
+        continue-on-error: true
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ secrets.MODRINTH_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: fabric/build/libs/simpleballswap-fabric-${{ steps.preflight.outputs.version }}.jar
+          name: "Cobblemon: Simple Ball Swap ${{ steps.preflight.outputs.version }} (Fabric)"
+          version: ${{ steps.preflight.outputs.version }}
+          version-type: ${{ steps.preflight.outputs.version_type }}
+          changelog: ${{ steps.preflight.outputs.changelog }}
+          loaders: fabric
+          game-versions: 1.21.1
+
+      - name: Publish Fabric to CurseForge
+        id: fabric_curseforge
+        if: steps.preflight.outputs.publish == 'true'
+        continue-on-error: true
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          curseforge-id: ${{ secrets.CURSEFORGE_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: fabric/build/libs/simpleballswap-fabric-${{ steps.preflight.outputs.version }}.jar
+          name: "Cobblemon: Simple Ball Swap ${{ steps.preflight.outputs.version }} (Fabric)"
+          version: ${{ steps.preflight.outputs.version }}
+          version-type: ${{ steps.preflight.outputs.version_type }}
+          changelog: ${{ steps.preflight.outputs.changelog }}
+          loaders: fabric
+          game-versions: 1.21.1
+
+      - name: Publish NeoForge to Modrinth
+        id: neoforge_modrinth
+        if: steps.preflight.outputs.publish == 'true'
+        continue-on-error: true
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ${{ secrets.MODRINTH_ID }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: neoforge/build/libs/simpleballswap-neoforge-${{ steps.preflight.outputs.version }}.jar
+          name: "Cobblemon: Simple Ball Swap ${{ steps.preflight.outputs.version }} (NeoForge)"
+          version: ${{ steps.preflight.outputs.version }}
+          version-type: ${{ steps.preflight.outputs.version_type }}
+          changelog: ${{ steps.preflight.outputs.changelog }}
+          loaders: neoforge
+          game-versions: 1.21.1
+
+      - name: Publish NeoForge to CurseForge
+        id: neoforge_curseforge
+        if: steps.preflight.outputs.publish == 'true'
+        continue-on-error: true
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          curseforge-id: ${{ secrets.CURSEFORGE_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: neoforge/build/libs/simpleballswap-neoforge-${{ steps.preflight.outputs.version }}.jar
+          name: "Cobblemon: Simple Ball Swap ${{ steps.preflight.outputs.version }} (NeoForge)"
+          version: ${{ steps.preflight.outputs.version }}
+          version-type: ${{ steps.preflight.outputs.version_type }}
+          changelog: ${{ steps.preflight.outputs.changelog }}
+          loaders: neoforge
+          game-versions: 1.21.1
+
+      - name: Summarise publish results
+        if: steps.preflight.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+
+          rows=(
+            "Fabric / Modrinth|${{ steps.fabric_modrinth.outcome }}"
+            "Fabric / CurseForge|${{ steps.fabric_curseforge.outcome }}"
+            "NeoForge / Modrinth|${{ steps.neoforge_modrinth.outcome }}"
+            "NeoForge / CurseForge|${{ steps.neoforge_curseforge.outcome }}"
+          )
+
+          failed=0
+          {
+            echo "## Release ${{ steps.preflight.outputs.version }}"
+            echo ""
+            echo "| Listing | Result |"
+            echo "| --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for row in "${rows[@]}"; do
+            name="${row%%|*}"
+            outcome="${row##*|}"
+            if [[ "$outcome" == "success" ]]; then
+              echo "| $name | published |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "| $name | **$outcome** |" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+            fi
+          done
+
+          if (( failed )); then
+            echo "::error::One or more listings failed. Before re-running, delete any version that did publish on the affected platform, or cut a new release version."
+            exit 1
+          fi
