@@ -1,0 +1,7 @@
+# Curated release notes, not a commit log
+
+Release notes are player-facing, so they are written by hand in `CHANGELOG.md` and published verbatim. The workflow extracts the section whose heading matches the release version (`## [1.2.0] - 2026-10-26`, `## 1.2.0`, and `## v1.2.0` are all accepted) and fails preflight if that section is missing or empty. There is deliberately no fallback: a fallback to `git log` would silently put commit subjects such as `ci:` and `chore:` in front of players, which is the problem this replaces.
+
+**Considered options**: generating notes from `git log` between tags, as the first version of the workflow did. Rejected because commit subjects describe implementation, not player experience, and the author has no control over wording. Also considered: one file per release under `changelog/`. Rejected in favour of a single file so the full history reads in one place on GitHub; a solo project has little merge-conflict risk, and the versioned heading makes the published boundary explicit.
+
+**Consequences**: writing notes is now part of cutting a release, before the tag exists. Notes that are wrong after publishing cannot be fixed by re-running the tag — that creates duplicates — so edit the listing on the platform directly. Prerelease tags publish the section for their base version (`v1.2.0-beta.1` uses `1.2.0`) because the release version strips the suffix. The first release, `1.2.0`, was published with commit-log notes; its section here is reconstructed for the record.

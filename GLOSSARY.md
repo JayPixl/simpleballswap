@@ -23,3 +23,8 @@ _Avoid_: store, repository, marketplace
 **Listing**:
 One release version published for one mod loader on one distribution platform. A release produces four listings: two mod loaders × two distribution platforms.
 _Avoid_: post, entry, version (when a listing is meant)
+
+**Changelog**:
+The hand-written, player-facing notes for a release, kept in `CHANGELOG.md`. The section for a release version is published verbatim to every listing.
+_Avoid_: commit log, generated release notes
+
